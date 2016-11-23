@@ -13,10 +13,11 @@ from tool.config import Config
 if __name__ == '__main__':
     print '='*80
     print '   RecQ: An effective python-based recommender algorithm library.   '
-    print '='*80
-
+    print '-'*80
+    print 'Algorithms:'
     print '1. UserKNN   2. ItemKNN   3. BasicMF   4. SlopeOne   5. RSTE   6. UserMean'
     print '7. ItemMean   8. SVD'
+    print '='*80
     algor = 0
     order = input('please enter the num of the algorithm to run it:')
     import time
