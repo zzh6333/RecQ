@@ -15,7 +15,7 @@ class RatingDAO(object):
         self.item = {} #used to store the order of items
         self.userMeans = {} #used to store the mean values of users's ratings
         self.itemMeans = {} #used to store the mean values of items's ratings
-        self.triple = [] #training data
+        self.trainingData = [] #training data
         self.globalMean = 0
         self.timestamp = {}
         self.ratingMatrix = None
@@ -90,7 +90,7 @@ class RatingDAO(object):
                 i_u_r[itemId] = []
             i_u_r[itemId].append([userId,float(rating)])
             if not bTest:
-                self.triple.append([userId,itemId,normRating])
+                self.trainingData.append([userId,itemId,normRating])
                 triple.append([self.user[userId],self.item[itemId],normRating])
 
         if not bTest:
