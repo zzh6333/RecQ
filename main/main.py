@@ -9,6 +9,7 @@ from algorithm.rating.UserMean import UserMean
 from algorithm.rating.ItemMean import ItemMean
 from algorithm.rating.SVD import SVD
 from algorithm.rating.PMF import PMF
+from algorithm.rating.SVDRSTE import SVDRSTE
 from tool.config import Config
 from visual.display import Display
 
