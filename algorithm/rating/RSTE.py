@@ -24,30 +24,35 @@ class RSTE(SocialRecommender):
             self.loss = 0
             for entry in self.dao.trainingData:
                 u, i, r = entry
+                error = r - self.predict(u,i)
                 i = self.dao.getItemId(i)
-                fPred = 0
-                denom = 0
-                relations = self.sao.getFollowees(u)
-                for followee in relations:
-                    weight = relations[followee]
-                    uf = self.dao.getUserId(followee)
-                    if uf<>-1 and self.dao.containsUser(uf): #followee is in rating set
-                        fPred += weight*(self.P[uf].dot(self.Q[i]))
-                        denom+=weight
-
                 u = self.dao.getUserId(u)
-
-                if denom<>0:
-                    error = r - self.alpha*self.P[u].dot(self.Q[i])\
-                            -(1-self.alpha)*fPred/denom
-                else:
-                    error = r - self.alpha * self.P[u].dot(self.Q[i])
                 self.loss += error ** 2
                 p = self.P[u].copy()
                 q = self.Q[i].copy()
                 self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
                 # update latent vectors
-                self.P[u] = p + self.lRate * (self.alpha*error * q - self.regU * p)
-                self.Q[i] = q + self.lRate * (self.alpha*error * p - self.regI * q)
+                self.P[u] += self.lRate * (self.alpha*error * q - self.regU * p)
+                self.Q[i] += self.lRate * (self.alpha*error * p - self.regI * q)
             iteration += 1
             self.isConverged(iteration)
+
+    def predict(self,u,i):
+        if self.dao.containsUser(u) and self.dao.containsItem(i):
+            i = self.dao.getItemId(i)
+            fPred = 0
+            denom = 0
+            relations = self.sao.getFollowees(u)
+            for followee in relations:
+                weight = relations[followee]
+                uf = self.dao.getUserId(followee)
+                if uf <> -1 and self.dao.containsUser(uf):  # followee is in rating set
+                    fPred += weight * (self.P[uf].dot(self.Q[i]))
+                    denom += weight
+            u = self.dao.getUserId(u)
+            if denom <> 0:
+                return self.alpha * self.P[u].dot(self.Q[i])+(1-self.alpha)*fPred / denom
+            else:
+                return self.P[u].dot(self.Q[i])
+        else:
+            return self.dao.globalMean
