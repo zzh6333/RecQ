@@ -9,8 +9,8 @@ import pickle
 
 
 class WSS(SocialRecommender):
-    def __init__(self,conf):
-        super(WSS, self).__init__(conf)
+    def __init__(self,conf,trainingSet=None,testSet=None,fold='[1]'):
+        super(WSS, self).__init__(conf,trainingSet,testSet,fold)
         self.config = conf
 
     def readConfiguration(self):
