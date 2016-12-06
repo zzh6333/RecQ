@@ -64,13 +64,13 @@ if __name__ == '__main__':
         conf = Config('../config/SocialMF.conf')
 
     elif order == 12:
-        conf = Config('../config/SocialMF.conf')
+        conf = Config('../config/WSF.conf')
 
     elif order == 13:
-        conf = Config('../config/SocialMF.conf')
+        conf = Config('../config/WSS.conf')
 
     elif order == 14:
-        conf = Config('../config/SocialMF.conf')
+        conf = Config('../config/WST.conf')
 
     else:
         print 'Error num!'
