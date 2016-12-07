@@ -14,7 +14,7 @@ class WSS(SocialRecommender):
         self.config = conf
 
     def readConfiguration(self):
-        super(SocialRecommender, self).readConfiguration()
+        super(WSS, self).readConfiguration()
         alpha = config.LineConfig(self.config['WSS'])
         self.alpha = float(alpha['-alpha'])
 

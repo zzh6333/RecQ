@@ -14,7 +14,7 @@ class WST(SocialRecommender):
         self.config = conf
 
     def readConfiguration(self):
-        super(SocialRecommender, self).readConfiguration()
+        super(WST, self).readConfiguration()
         alpha = config.LineConfig(self.config['WST'])
         eta = config.LineConfig(self.config['WST'])
         self.alpha = float(alpha['-alpha'])
