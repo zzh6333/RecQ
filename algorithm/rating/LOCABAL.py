@@ -28,9 +28,11 @@ class LOCABAL(SocialRecommender):
         for re in self.sao.relation:
             G.add_edge(re[0], re[1])
         pr = nx.pagerank(G, alpha=0.85)
+        minimum = min([pr[u] for u in pr])
         self.W = {}
         for u in pr:
-            self.W[u] = 1/(1+math.exp(pr[u]))
+            self.W[u] = 1/(1+math.log(pr[u]/minimum))
+
         self.S = SymmetricMatrix(len(self.dao.user))
         for user in self.dao.user:
             followees = self.sao.getFollowees(user)
@@ -66,12 +68,12 @@ class LOCABAL(SocialRecommender):
 
                 for followee in self.sao.getFollowees(u):
                     if self.S.contains(u,followee) and self.dao.containsUser(followee):
-                        k = self.dao.getUserId(followee)
-                        localLoss = self.S[u][followee] - np.dot(np.dot(p.T,H1),self.P[k])
+                        uf = self.dao.getUserId(followee)
+                        localLoss = self.S[u][followee] - np.dot(np.dot(p.T,H1),self.P[uf])
 
                         self.loss += localLoss ** 2
-                        deltaH += (self.S[u][followee] - np.dot(np.dot(p.T,H1),self.P[k]))* \
-                                  np.dot(p.reshape(self.k,1),self.P[k].reshape(1,self.k))
+                        deltaH += (self.S[u][followee] - np.dot(np.dot(p.T,H1),self.P[uf]))* \
+                                  np.dot(p.reshape(self.k,1),self.P[uf].reshape(1,self.k))
 
                 # update latent vectors
                 self.P[uid] += self.lRate * (weight*error * q - self.regU * p)
