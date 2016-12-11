@@ -4,62 +4,43 @@ from tool.config import Config,LineConfig
 from tool.file import FileIO
 from evaluation.dataSplit import *
 from multiprocessing import Process,Manager
-
+from tool.file import FileIO
 class RecQ(object):
     def __init__(self,config):
         self.trainingData = []  # training data
         self.testData = []  # testData
+        self.relation = []
         self.measure = []
         self.config =config
         self.ratingConfig = LineConfig(config['ratings.setup'])
+
         if self.config.contains('evaluation.setup'):
             self.evaluation = LineConfig(config['evaluation.setup'])
             if self.evaluation.contains('-testSet'):
                 #specify testSet
-                self.__loadDataSet(config['ratings'])
-                self.__loadDataSet(self.evaluation['-testSet'],bTest=True)
+                self.trainingData = FileIO.loadDataSet(config,config['ratings'])
+                self.testData = FileIO.loadDataSet(config,self.evaluation['-testSet'],bTest=True)
             elif self.evaluation.contains('-ap'):
                 #auto partition
-                self.__loadDataSet(config['ratings'])
+                self.trainingData = FileIO.loadDataSet(config,config['ratings'])
                 self.trainingData,self.testData = DataSplit.\
                     dataSplit(self.trainingData,test_ratio=float(self.evaluation['-ap']))
             elif self.evaluation.contains('-cv'):
                 #cross validation
-                self.__loadDataSet(config['ratings'])
+                self.trainingData = FileIO.loadDataSet(config,config['ratings'])
                 #self.trainingData,self.testData = DataSplit.crossValidation(self.trainingData,int(self.evaluation['-cv']))
-            else:
-                print 'Evaluation is not well configured!'
-                exit(-1)
 
-    def __loadDataSet(self, file, bTest=False):
-        if not bTest:
-            print 'loading training data...'
         else:
-            print 'loading test data...'
-        with open(file) as f:
-            ratings = f.readlines()
-        # ignore the headline
-        if self.ratingConfig.contains('-header'):
-            ratings = ratings[1:]
-        # order of the columns
-        order = self.ratingConfig['-columns'].strip().split()
+            print 'Evaluation is not well configured!'
+            exit(-1)
 
-        for lineNo, line in enumerate(ratings):
-            items = split(' |,|\t', line.strip())
-            if len(order) < 3:
-                print 'The rating file is not in a correct format. Error: Line num %d' % lineNo
-                exit(-1)
-            try:
-                userId = items[int(order[0])]
-                itemId = items[int(order[1])]
-                rating = items[int(order[2])]
-            except ValueError:
-                print 'Error! Have you added the option -header to the rating.setup?'
-                exit(-1)
-            if not bTest:
-                self.trainingData.append([userId, itemId, float(rating)])
-            else:
-                self.testData.append([userId, itemId, float(rating)])
+        if config.contains('social'):
+            self.socialConfig = LineConfig(self.config['social.setup'])
+            self.relation = FileIO.loadRelationship(config,self.config['social'])
+
+
+
+
 
 
     def execute(self):
@@ -68,6 +49,8 @@ class RecQ(object):
         exec (importStr)
         if self.evaluation.contains('-cv'):
             k = int(self.evaluation['-cv'])
+            if k <= 1 or k > 10:
+                k = 3
             #create the manager used to communication in multiprocess
             manager = Manager()
             m = manager.dict()
@@ -75,12 +58,17 @@ class RecQ(object):
             tasks = []
             for train,test in DataSplit.crossValidation(self.trainingData,k):
                 fold = '['+str(i)+']'
-                recommender = self.config['recommender']+ "(self.config,train,test,fold)"
+                if self.config.contains('social'):
+                    recommender = self.config['recommender'] + "(self.config,train,test,self.relation,fold)"
+                else:
+                    recommender = self.config['recommender']+ "(self.config,train,test,fold)"
                #create the process
                 p = Process(target=run,args=(m,eval(recommender),i))
-                p.start()
                 tasks.append(p)
                 i+=1
+            #start the processes
+            for p in tasks:
+                p.start()
             #wait until all processes are completed
             for p in tasks:
                 p.join()
@@ -100,7 +88,10 @@ class RecQ(object):
 
 
         else:
-            recommender = self.config['recommender']+'(self.config,self.trainingData,self.testData)'
+            if self.config.contains('social'):
+                recommender = self.config['recommender']+'(self.config,self.trainingData,self.testData,self.relation)'
+            else:
+                recommender = self.config['recommender'] + '(self.config,self.trainingData,self.testData)'
             eval(recommender).execute()
 
 

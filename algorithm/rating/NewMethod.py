@@ -8,29 +8,37 @@ import pickle
 
 
 
-class WSS(SocialRecommender):
+class NewMethod(SocialRecommender):
     def __init__(self,conf,trainingSet=None,testSet=None,fold='[1]'):
-        super(WSS, self).__init__(conf,trainingSet,testSet,fold)
+        super(NewMethod, self).__init__(conf,trainingSet,testSet,fold)
         self.config = conf
 
     def readConfiguration(self):
-        super(WSS, self).readConfiguration()
-        alpha = config.LineConfig(self.config['WSS'])
+        super(NewMethod, self).readConfiguration()
+        alpha = config.LineConfig(self.config['NewMethod'])
+        eta = config.LineConfig(self.config['NewMethod'])
         self.alpha = float(alpha['-alpha'])
+        self.eta = float(eta['-eta'])
 
     def printAlgorConfig(self):
-        super(WSS, self).printAlgorConfig()
+        super(NewMethod, self).printAlgorConfig()
         print 'Specified Arguments of', self.config['recommender'] + ':'
-        print 'alpha: %.3f' % self.alpha
+        print 'alpha: %.3f  eta: %.3f' % (self.alpha, self.eta)
         print '=' * 80
 
     def initModel(self):
-        super(WSS, self).initModel()
+        super(NewMethod, self).initModel()
+        self.H = np.random.rand(self.dao.trainingSize()[0], self.k)
         #construct graph
         G = nx.DiGraph()
         for re in self.sao.relation:
             G.add_edge(re[0],re[1])
-        # compute betweenness
+        #initialize new relation matrix
+        self.S = self.sao.followees.copy()
+        for u1 in self.S:
+            for u2 in self.S[u1]:
+                self.S[u1][u2] = np.random.rand()
+        #compute betweenness
         self.getBetweenCentrality(G)
 
     def getBetweenCentrality(self,G,load=True):
@@ -49,14 +57,6 @@ class WSS(SocialRecommender):
             uid = self.dao.getUserId(u)
             self.communication[uid] = bt[u]-min/diff
 
-        self.S = self.sao.followees.copy()
-        for u1 in self.S:
-            for u2 in self.S[u1]:
-                uid = self.dao.getUserId(u2)
-                self.S[u1][u2] = self.communication[uid]
-
-
-
     def buildModel(self):
         iteration = 0
         while iteration < self.maxIter:
@@ -66,41 +66,45 @@ class WSS(SocialRecommender):
                 trustRating = 0
                 suv = 0
                 if len(self.sao.getFollowees(u)) != 0:
-                    suv = sum(self.S[u].values())  #
+
                     for v in self.sao.getFollowees(u):
-                        trustRating += self.S[u][v] * self.dao.rating(v,i)
+                        if self.dao.rating(v,i)!=0:
+                            vid = self.dao.getUserId(v)
+                            id = self.dao.getItemId(i)
+                            trustRating += self.S[u][v] * self.P[vid].dot(self.Q[id])
+                            suv += self.S[u][v]
 
                 u1 = u
                 u = self.dao.getUserId(u)
                 i = self.dao.getItemId(i)
+
                 if suv!=0:
-                    error = r - self.alpha*self.P[u].dot(self.Q[i])-(1-self.alpha)*(trustRating/suv)
+                    error1 = r - self.alpha*self.P[u].dot(self.Q[i])-(1-self.alpha)*(trustRating/suv)
                 else:
-                    error = r - self.P[u].dot(self.Q[i])
-                self.loss += error**2
+                    error1 = r - self.P[u].dot(self.Q[i])
+
+                error2 = self.communication[u] - self.P[u].dot(self.H[u])
+
+                self.loss += error1**2 + self.eta*(error2**2)
                 p = self.P[u].copy()
                 q = self.Q[i].copy()
 
                 self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
 
                 #update latent vectors
-                self.P[u] += self.lRate*(self.alpha*error*q-self.regU*p)
-                self.Q[i] += self.lRate*(self.alpha*error*p-self.regI*q)
+                self.P[u] += self.lRate*(self.alpha*error1*q-self.regU*p + self.eta*error2*self.H[u])
+                self.Q[i] += self.lRate*(self.alpha*error1*p-self.regI*q)
+                self.H[u] += self.lRate*(self.eta*error2*self.P[u])
                 if suv != 0:
                     for v in self.sao.getFollowees(u1):
-                        self.S[u1][v] += self.lRate*(1-self.alpha)*error*((self.dao.rating(v,i)*suv - trustRating)/(suv**2))
+                        vid = self.dao.getUserId(v)
+                        self.S[u1][v] += self.lRate*((1-self.alpha)*error1*((self.P[u].dot(self.Q[i])*suv - trustRating)/(suv**2)))
 
             iteration += 1
             if self.isConverged(iteration):
                 break
 
-        #######
-        # for u1 in self.S:
-        #     for u2 in self.S[u1]:
-        #         id = self.dao.getUserId(u2)
-        #         self.S[u1][u2]*=self.communication[id]
-        #
-        # self.sao.followees = self.S
+        self.sao.followees = self.S
 
 
 

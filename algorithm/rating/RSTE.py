@@ -1,11 +1,11 @@
 from baseclass.SocialRecommender import SocialRecommender
 from tool import config
 class RSTE(SocialRecommender):
-    def __init__(self,conf,trainingSet=None,testSet=None,fold='[1]'):
-        super(RSTE, self).__init__(conf,trainingSet,testSet,fold)
+    def __init__(self,conf,trainingSet=None,testSet=None,relation=list(),fold='[1]'):
+        super(RSTE, self).__init__(conf,trainingSet,testSet,relation,fold)
 
     def readConfiguration(self):
-        super(SocialRecommender, self).readConfiguration()
+        super(RSTE, self).readConfiguration()
         alpha = config.LineConfig(self.config['RSTE'])
         self.alpha = float(alpha['-alpha'])
 
@@ -46,7 +46,7 @@ class RSTE(SocialRecommender):
             for followee in relations:
                 weight = relations[followee]
                 uf = self.dao.getUserId(followee)
-                if uf <> -1 and self.dao.containsUser(uf):  # followee is in rating set
+                if uf <> -1 and self.dao.containsUser(followee):  # followee is in rating set
                     fPred += weight * (self.P[uf].dot(self.Q[i]))
                     denom += weight
             u = self.dao.getUserId(u)

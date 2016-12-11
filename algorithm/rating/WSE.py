@@ -8,26 +8,26 @@ import pickle
 
 
 
-class WST(SocialRecommender):
+class WSE(SocialRecommender):
     def __init__(self,conf,trainingSet=None,testSet=None,fold='[1]'):
-        super(WST, self).__init__(conf,trainingSet,testSet,fold)
+        super(WSE, self).__init__(conf,trainingSet,testSet,fold)
         self.config = conf
 
     def readConfiguration(self):
-        super(WST, self).readConfiguration()
-        alpha = config.LineConfig(self.config['WST'])
-        eta = config.LineConfig(self.config['WST'])
+        super(WSE, self).readConfiguration()
+        alpha = config.LineConfig(self.config['WSE'])
+        eta = config.LineConfig(self.config['WSE'])
         self.alpha = float(alpha['-alpha'])
         self.eta = float(eta['-eta'])
 
     def printAlgorConfig(self):
-        super(WST, self).printAlgorConfig()
+        super(WSE, self).printAlgorConfig()
         print 'Specified Arguments of', self.config['recommender'] + ':'
         print 'alpha: %.3f' % self.alpha
         print '=' * 80
 
     def initModel(self):
-        super(WST, self).initModel()
+        super(WSE, self).initModel()
         #construct graph
         G = nx.DiGraph()
         for re in self.sao.relation:
@@ -38,63 +38,63 @@ class WST(SocialRecommender):
             for u2 in self.S[u1]:
                 self.S[u1][u2] = np.random.rand()
         #compute betweenness
-        self.getBetweenCentrality(G)
+        self.getBetweenCentrality(G,False)
 
     def getBetweenCentrality(self,G,load=True):
-        self.communication = np.zeros(len(self.sao.user))
+        self.edgeImportance = self.sao.followees.copy()
         if not load:
-            bt = nx.betweenness_centrality(G)
-            output = open('between.pkl', 'wb')
+            bt = nx.edge_betweenness_centrality(G)
+            output = open('edgebetween.pkl', 'wb')
             pickle.dump(bt, output)
         else:
-            pkl_file = open('between.pkl', 'rb')
+            pkl_file = open('edgebetween.pkl', 'rb')
             bt = pickle.load(pkl_file)
-        max = np.max(bt.values())
-        min = np.min(bt.values())
-        diff = max - min
-        for u in bt:
-            uid = self.dao.getUserId(u)
-            self.communication[uid] = bt[u]-min/diff
+        # max = np.max(bt.values())
+        # min = np.min(bt.values())
+        # diff = max - min
+        # for u in bt:
+        #     uid = self.dao.getUserId(u)
+        #     self.communication[uid] = bt[u]-min/diff
 
     def buildModel(self):
-        iteration = 0
-        while iteration < self.maxIter:
-            self.loss = 0
-            for triple in self.dao.trainingData:
-                u,i,r = triple
-                trustRating = 0
-                suv = 0
-                if len(self.sao.getFollowees(u)) != 0:
-                    suv = sum(self.S[u].values())  #
-                    for v in self.sao.getFollowees(u):
-                        trustRating += self.S[u][v] * self.dao.rating(v,i)
-
-                u1 = u
-                u = self.dao.getUserId(u)
-                i = self.dao.getItemId(i)
-                if suv!=0:
-                    error = r - self.alpha*self.P[u].dot(self.Q[i])-(1-self.alpha)*(trustRating/suv)
-                else:
-                    error = r - self.P[u].dot(self.Q[i])
-                self.loss += error**2
-                p = self.P[u].copy()
-                q = self.Q[i].copy()
-
-                self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
-
-                #update latent vectors
-                self.P[u] += self.lRate*(self.alpha*error*q-self.regU*p)
-                self.Q[i] += self.lRate*(self.alpha*error*p-self.regI*q)
-                if suv != 0:
-                    for v in self.sao.getFollowees(u1):
-                        vid = self.dao.getUserId(v)
-                        self.S[u1][v] += self.lRate*((1-self.alpha)*error*((self.dao.rating(v,i)*suv - trustRating)/(suv**2))-
-                                                     self.eta * (self.communication[vid] - self.S[u1][v]))
-
-            iteration += 1
-            if self.isConverged(iteration):
-                break
-
+        # iteration = 0
+        # while iteration < self.maxIter:
+        #     self.loss = 0
+        #     for triple in self.dao.trainingData:
+        #         u,i,r = triple
+        #         trustRating = 0
+        #         suv = 0
+        #         if len(self.sao.getFollowees(u)) != 0:
+        #             suv = sum(self.S[u].values())  #
+        #             for v in self.sao.getFollowees(u):
+        #                 trustRating += self.S[u][v] * self.dao.rating(v,i)
+        #
+        #         u1 = u
+        #         u = self.dao.getUserId(u)
+        #         i = self.dao.getItemId(i)
+        #         if suv!=0:
+        #             error = r - self.alpha*self.P[u].dot(self.Q[i])-(1-self.alpha)*(trustRating/suv)
+        #         else:
+        #             error = r - self.P[u].dot(self.Q[i])
+        #         self.loss += error**2
+        #         p = self.P[u].copy()
+        #         q = self.Q[i].copy()
+        #
+        #         self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
+        #
+        #         #update latent vectors
+        #         self.P[u] += self.lRate*(self.alpha*error*q-self.regU*p)
+        #         self.Q[i] += self.lRate*(self.alpha*error*p-self.regI*q)
+        #         if suv != 0:
+        #             for v in self.sao.getFollowees(u1):
+        #                 vid = self.dao.getUserId(v)
+        #                 self.S[u1][v] += self.lRate*((1-self.alpha)*error*((self.dao.rating(v,i)*suv - trustRating)/(suv**2))-
+        #                                              self.eta * (self.communication[vid] - self.S[u1][v]))
+        #
+        #     iteration += 1
+        #     if self.isConverged(iteration):
+        #         break
+        #
         self.sao.followees = self.S
 
 
