@@ -68,7 +68,10 @@ class Measure(object):
 
     @staticmethod
     def F1(prec,recall):
-        return 2*prec*recall/(prec+recall)
+        if (prec+recall)!=0:
+            return 2*prec*recall/(prec+recall)
+        else:
+            return 0
 
 
 

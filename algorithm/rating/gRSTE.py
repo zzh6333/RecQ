@@ -47,8 +47,8 @@ class gRSTE(SocialRecommender):
                 q = self.Q[i].copy()
                 self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
                 # update latent vectors
-                self.P[u] += w*self.lRate * (self.alpha*error * q - self.regU * p)
-                self.Q[i] += w*self.lRate * (self.alpha*error * p - self.regI * q)
+                self.P[u] += self.lRate * (w*self.alpha*error * q - self.regU * p)
+                self.Q[i] += self.lRate * (w*self.alpha*error * p - self.regI * q)
             iteration += 1
             self.isConverged(iteration)
 
@@ -61,7 +61,7 @@ class gRSTE(SocialRecommender):
             for followee in relations:
                 weight = relations[followee]
                 uf = self.dao.getUserId(followee)
-                if uf <> -1 and self.dao.containsUser(followee):  # followee is in rating set
+                if self.dao.containsUser(followee):  # followee is in rating set
                     fPred += weight * (self.P[uf].dot(self.Q[i]))
                     denom += weight
             u = self.dao.getUserId(u)

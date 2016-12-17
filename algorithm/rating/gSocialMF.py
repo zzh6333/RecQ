@@ -34,13 +34,14 @@ class gSocialMF(SocialRecommender ):
             self.loss = 0
             for entry in self.dao.trainingData:
                 userId, itemId, r = entry
+                w = 1
+                if self.degree.has_key(userId) and self.degree[userId]!=0:
+                    w = self.degree[userId]
                 followees = self.sao.getFollowers(userId)
                 u = self.dao.getUserId(userId)
                 i = self.dao.getItemId(itemId)
                 error = (r - self.P[u].dot(self.Q[i]))
-                w = 1
-                if self.degree.has_key(u) and self.degree[userId]!=0:
-                    w = self.degree[userId]
+
                 self.loss += (error**2)*w
                 p = self.P[u].copy()
                 q = self.Q[i].copy()
@@ -59,8 +60,8 @@ class gSocialMF(SocialRecommender ):
                 self.loss += self.regU * p.dot(p) + self.regI * q.dot(q) + self.regS *  relationLoss.dot(relationLoss)
 
                 # update latent vectors
-                self.P[u] += w*self.lRate * (error * q - self.regU * p - self.regS * relationLoss)
-                self.Q[i] += w*self.lRate * (error * p - self.regI * q)
+                self.P[u] += self.lRate * (w*error * q - self.regU * p - self.regS * relationLoss)
+                self.Q[i] += self.lRate * (w*error * p - self.regI * q)
 
 
             iteration += 1
