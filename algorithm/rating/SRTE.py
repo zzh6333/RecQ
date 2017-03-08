@@ -50,7 +50,7 @@ class Word_Eembedding_Method(object):
             tag = user
             self.corpus[tag] = []
             for item, rating in trainingData[user].iteritems():
-                self.corpus[tag] += int(rating) * [item]
+                self.corpus[tag] += int(rating)*[item]
 
 
     def trainingNet(self, epoch,window, nDimension):
@@ -68,27 +68,37 @@ class SRTE(SocialRecommender ):
     def __init__(self,conf,trainingSet=None,testSet=None,relation=list(),fold='[1]'):
         super(SRTE, self).__init__(conf,trainingSet,testSet,relation,fold)
         self.userSim = SymmetricMatrix(len(self.dao.user))
+        self.trust = defaultdict(dict)
 
     def initModel(self):
         super(SRTE, self).initModel()
-        self.d1 = defaultdict(dict)
-        for i, entry in enumerate(self.dao.trainingData):
+        self.r = defaultdict(dict)
+        self.s = defaultdict(dict)
+        for entry in self.dao.trainingData:
             userId, itemId, rating = entry
 
             # makes the rating within the range [0, 1].
             rating = denormalize(float(rating), self.dao.rScale[-1], self.dao.rScale[0])
-            self.d1[userId][itemId] = round(rating)
+            self.r[userId][itemId] = round(rating)
 
-        te = Word_Eembedding_Method(self.d1)
+        re = Word_Eembedding_Method(self.r)
+        for r in self.sao.relation:
+            trustor,trustee,weight = r
+            self.s[trustor][trustee] = weight
+        se = Word_Eembedding_Method(self.s)
+
+
 
 
         # else:
         # pkl_file = open('dvecs.pkl', 'rb')
         # bt = pickle.load(pkl_file)
-        self.uVecs = te.trainingNet(5,5,50)
+        self.uVecs = re.trainingNet(5,5,50)
+        self.sVecs = se.trainingNet(5,3,50)
         output = open('dvecs.bin', 'wb')
         pickle.dump(self.uVecs, output)
         self.computeCorr()
+        self.reComputeTrust()
 
 
     def readConfiguration(self):
@@ -119,8 +129,18 @@ class SRTE(SocialRecommender ):
             print 'user ' + u1 + ' finished.'
         print 'The user correlation has been figured out.'
 
+    def reComputeTrust(self):
+        print 're-computing user trust...'
+        for u1 in self.dao.testSet_u :
+            if u1 in self.sao.followees:
+                for u2 in self.sao.followees[u1]:
+                    if  u1 in self.sVecs and u2 in self.sVecs:
+                        sim = self.cosine_t(self.sVecs[u1], self.sVecs[u2])
+                        self.trust[u1][u2] = sim
+                print 'user ' + u1 + ' finished.'
+        print 'The user correlation has been figured out.'
 
-    def predict(self, u, i):
+    def predictBySim(self, u, i):
         if u not in self.uVecs:
             return self.dao.globalMean
         # find the closest neighbors of user u
@@ -146,4 +166,24 @@ class SRTE(SocialRecommender ):
             return self.dao.userMeans[u]
         pred = self.dao.userMeans[u] + sum / float(denom)
         return pred
+
+    def predictByTrust(self,u,i):
+        sum = 0
+        denom = 0
+        for t in self.trust[u]:
+            if self.dao.contains(t,i):
+                sum+=self.trust[u][t]*self.dao.rating(t,i)
+                denom += self.trust[u][t]
+        if sum!=0:
+            return sum/denom
+        else:
+            return 0
+
+    def predict(self,u,i):
+        r1 = self.predictBySim(u,i)
+        r2 = self.predictByTrust(u,i)
+        if r2!=0:
+            return (r1+r2)/2
+        else:
+            return r1
 
