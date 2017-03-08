@@ -1,69 +1,149 @@
 from baseclass.SocialRecommender import SocialRecommender
+from tool import qmath
 import math
 import numpy as np
 from tool import config
-#Social Recommendation Using Probabilistic Matrix Factorization
+from collections import defaultdict
+from tool.qmath import denormalize
+#Social Recommendation Using Text Embedding
+from gensim import utils
+from gensim.models.doc2vec import LabeledSentence
+from gensim.models import Doc2Vec
+from random import shuffle
+from structure.symmetricMatrix import SymmetricMatrix
+from math import sqrt
+import pickle
+class LabeledLineSentence(object):
+    def __init__(self, sources):
+        self.sources = sources
+
+        flipped = {}
+
+        # make sure that keys are unique
+        for key, value in sources.items():
+            if key not in flipped:
+                flipped[key] = [value]
+            else:
+                raise Exception('Non-unique prefix encountered')
+
+    def __iter__(self):
+        for source, prefix in self.sources.items():
+            yield LabeledSentence(source, [prefix])
+
+    def to_array(self):
+        self.sentences = []
+        for prefix, source in self.sources.items():
+            self.sentences.append(LabeledSentence(source, [prefix]))
+        return self.sentences
+
+    def sentences_perm(self):
+        shuffle(self.sentences)
+        return self.sentences
+
+
+class Word_Eembedding_Method(object):
+    def __init__(self, trainingData):
+        self.corpus = {}
+        self.trainingDict = trainingData
+
+        for user in trainingData:
+            tag = user
+            self.corpus[tag] = []
+            for item, rating in trainingData[user].iteritems():
+                self.corpus[tag] += int(rating) * [item]
+
+
+    def trainingNet(self, epoch,window, nDimension):
+        self.nDimension = nDimension
+        sentences = LabeledLineSentence(self.corpus)
+        self.model = Doc2Vec(min_count=1, window=window, size=nDimension, sample=1e-4, negative=5, workers=4)
+        corpus = sentences.to_array()
+        self.model.build_vocab(corpus)
+        for epoch in range(epoch):
+            self.model.train(sentences.sentences_perm())
+        return self.model.docvecs
+
+
 class SRTE(SocialRecommender ):
     def __init__(self,conf,trainingSet=None,testSet=None,relation=list(),fold='[1]'):
         super(SRTE, self).__init__(conf,trainingSet,testSet,relation,fold)
+        self.userSim = SymmetricMatrix(len(self.dao.user))
+
+    def initModel(self):
+        super(SRTE, self).initModel()
+        self.d1 = defaultdict(dict)
+        for i, entry in enumerate(self.dao.trainingData):
+            userId, itemId, rating = entry
+
+            # makes the rating within the range [0, 1].
+            rating = denormalize(float(rating), self.dao.rScale[-1], self.dao.rScale[0])
+            self.d1[userId][itemId] = round(rating)
+
+        te = Word_Eembedding_Method(self.d1)
+
+
+        # else:
+        # pkl_file = open('dvecs.pkl', 'rb')
+        # bt = pickle.load(pkl_file)
+        self.uVecs = te.trainingNet(5,5,50)
+        output = open('dvecs.bin', 'wb')
+        pickle.dump(self.uVecs, output)
+        self.computeCorr()
 
 
     def readConfiguration(self):
         super(SRTE, self).readConfiguration()
-        regZ = config.LineConfig(self.config['SRTE'])
-        self.regZ = float( regZ['-z'])
+        self.sim = self.config['similarity']
+        self.shrinkage =int(self.config['num.shrinkage'])
+        self.neighbors = int(self.config['num.neighbors'])
 
-    def initModel(self):
-        super(SRTE, self).initModel()
-        self.Z = np.random.rand(self.dao.trainingSize()[0], self.k)
+    def cosine_t(self,x1, x2):
+        sum = x1.dot(x2)
+        denom = sqrt(x1.dot(x1) * x2.dot(x2))
+        try:
+            return float(sum) / denom
+        except ZeroDivisionError:
+            return 0
 
-    def printAlgorConfig(self):
-        super(SRTE, self).printAlgorConfig()
-        print 'Specified Arguments of', self.config['recommender'] + ':'
-        print 'regZ: %.3f' % self.regZ
-        print '=' * 80
+    def computeCorr(self):
+        'compute correlation among users'
+        print 'Computing user correlation...'
+        for u1 in self.dao.testSet_u:
+
+            for u2 in self.dao.user:
+                if u1 <> u2 and u1 in self.uVecs and u2 in self.uVecs:
+                    if self.userSim.contains(u1, u2):
+                        continue
+                    sim = self.cosine_t(self.uVecs[u1], self.uVecs[u2])
+                    self.userSim.set(u1, u2, sim)
+            print 'user ' + u1 + ' finished.'
+        print 'The user correlation has been figured out.'
 
 
-    def buildModel(self):
-        iteration = 0
-        while iteration < self.maxIter:
-            self.loss = 0
-            #ratings
-            for entry in self.dao.trainingData:
-                u, i, r = entry
-                error = r - self.predict(u, i)
-                i = self.dao.getItemId(i)
-                u = self.dao.getUserId(u)
-                self.loss += error ** 2
-                p = self.P[u].copy()
-                q = self.Q[i].copy()
-                self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
-                # update latent vectors
-                self.P[u] += self.lRate * (error * q - self.regU * p)
-                self.Q[i] += self.lRate * (error * p - self.regI * q)
+    def predict(self, u, i):
+        if u not in self.uVecs:
+            return self.dao.globalMean
+        # find the closest neighbors of user u
+        topUsers = sorted(self.userSim[u].iteritems(), key=lambda d: d[1], reverse=True)
+        userCount = self.neighbors
+        if userCount > len(topUsers):
+            userCount = len(topUsers)
+        # predict
+        sum, denom = 0, 0
+        for n in range(userCount):
+            # if user n has rating on item i
+            similarUser = topUsers[n][0]
+            if self.dao.rating(similarUser, i) != 0:
+                similarity = topUsers[n][1]
+                rating = self.dao.rating(similarUser, i)
+                sum += similarity * (rating - self.dao.userMeans[similarUser])
+                denom += similarity
+        if sum == 0:
+            # no users have rating on item i,return the average rating of user u
+            if not self.dao.containsUser(u):
+                # user u has no ratings in the training set,return the global mean
+                return self.dao.globalMean
+            return self.dao.userMeans[u]
+        pred = self.dao.userMeans[u] + sum / float(denom)
+        return pred
 
-            #relations
-            for entry in self.sao.relation:
-                u, v, tuv = entry
-                if self.dao.containsUser(u) and self.dao.containsUser(v):
-                    vminus = len(self.sao.getFollowers(v))# ~ d - (k)
-                    uplus = len(self.sao.getFollowees(u))#~ d + (i)
-                    try:
-                        weight = math.sqrt(vminus / (uplus + vminus + 0.0))
-                    except ZeroDivisionError:
-                        weight = 1
-                    v = self.dao.getUserId(v)
-                    u = self.dao.getUserId(u)
-                    euv = weight * tuv - self.P[u].dot(self.Z[v])  # weight * tuv~ cik *
-                    self.loss += self.regS * (euv ** 2)
-                    p = self.P[u].copy()
-                    z = self.Z[v].copy()
-                    self.loss += self.regZ * z.dot(z)
-                    # update latent vectors
-                    self.P[u] += self.lRate * (self.regS * euv * z)
-                    self.Z[v] += self.lRate * (euv * p - self.regZ * z)
-                else:
-                    continue
-            iteration += 1
-            if self.isConverged(iteration):
-                break
