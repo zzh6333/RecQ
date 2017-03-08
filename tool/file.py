@@ -97,5 +97,14 @@ class FileIO(object):
         return relation
 
 
+def compute(i):
+    return i+1
 
-
+import time
+a = time.clock()
+i = 0
+while i<100000:
+    c=compute(i)
+    i+=1
+b = time.clock()
+print b-a

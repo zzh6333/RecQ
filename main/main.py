@@ -14,7 +14,7 @@ if __name__ == '__main__':
     print '0. Analyze the input data.(Configure the visual.conf in config/visual first.)'
     print '1. UserKNN   2. ItemKNN   3. BasicMF   4. SlopeOne   5. RSTE   6. UserMean'
     print '7. ItemMean   8. SVD   9. PMF   10. TrustMF   11. SocialMF   12. SoRec   13.SoReg'
-    print '14. gSocialMF   15. gSoRec   16. gRSTE'
+    print '14. gSocialMF   15. gSoRec   16. gRSTE   17. EE'
     algor = -1
     conf = -1
     print '-'*80
@@ -77,6 +77,9 @@ if __name__ == '__main__':
 
     elif order == 16:
         conf = Config('../config/gRSTE.conf')
+
+    elif order == 17:
+        conf = Config('../config/EE.conf')
 
     else:
         print 'Error num!'
