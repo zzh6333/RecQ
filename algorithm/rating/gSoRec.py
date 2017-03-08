@@ -47,18 +47,18 @@ class gSoRec(SocialRecommender ):
             for entry in self.dao.trainingData:
                 u, i, r = entry
                 error = r - self.predict(u, i)
-                i = self.dao.getItemId(i)
-                u = self.dao.getUserId(u)
                 w = 1
                 if self.degree.has_key(u) and self.degree[u]!=0:
                     w = self.degree[u]
+                i = self.dao.getItemId(i)
+                u = self.dao.getUserId(u)
                 self.loss += w*error ** 2
                 p = self.P[u].copy()
                 q = self.Q[i].copy()
                 self.loss += self.regU * p.dot(p) + self.regI * q.dot(q)
                 # update latent vectors
-                self.P[u] += w*self.lRate * (error * q - self.regU * p)
-                self.Q[i] += w*self.lRate * (error * p - self.regI * q)
+                self.P[u] += self.lRate * (w*error * q - self.regU * p)
+                self.Q[i] += self.lRate * (w*error * p - self.regI * q)
 
             #relations
             for entry in self.sao.relation:
@@ -70,6 +70,7 @@ class gSoRec(SocialRecommender ):
                         weight = sqrt(vminus / (uplus + vminus + 0.0))
                     except ZeroDivisionError:
                         weight = 1
+
                     v = self.dao.getUserId(v)
                     u = self.dao.getUserId(u)
                     euv = weight * tuv - self.P[u].dot(self.Z[v])  # weight * tuv~ cik *
@@ -79,7 +80,7 @@ class gSoRec(SocialRecommender ):
                     self.loss += self.regZ * z.dot(z)
                     # update latent vectors
                     self.P[u] += self.lRate * (self.regS * euv * z)
-                    self.Z[v] += self.lRate * (euv * p - self.regZ * z)
+                    self.Z[v] += self.lRate * (self.regS * euv * p - self.regZ * z)
                 else:
                     continue
             iteration += 1
