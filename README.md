@@ -1,4 +1,4 @@
-![RecQ](http://chuantu.biz/t5/43/1480095308x760008152.png)
+#RecQ#
 
 Released by School of Software Engineering, Chongqing University
 ##Introduction##
@@ -208,6 +208,12 @@ To design it exquisitely, we brought some thoughts from another recommender syst
     <td scope="row">SoReg</td>
    
     <td>Ma et al., Recommender systems with social regularization, WSDM 2011.
+     </td>
+  </tr> 
+  <tr>
+    <td scope="row">EE</td>
+   
+    <td>Khoshneshin et al., Collaborative Filtering via Euclidean Embedding, RecSys2010.
      </td>
   </tr> 
   </table>
