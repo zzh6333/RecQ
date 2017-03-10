@@ -93,12 +93,12 @@ class SRTE(SocialRecommender ):
         # else:
         # pkl_file = open('dvecs.pkl', 'rb')
         # bt = pickle.load(pkl_file)
-        self.uVecs = re.trainingNet(5,5,50)
-        self.sVecs = se.trainingNet(5,3,50)
+        self.uVecs = re.trainingNet(5,4,50)
+        #self.sVecs = se.trainingNet(5,3,50)
         output = open('dvecs.bin', 'wb')
         pickle.dump(self.uVecs, output)
         self.computeCorr()
-        self.reComputeTrust()
+        #self.reComputeTrust()
 
 
     def readConfiguration(self):
@@ -129,16 +129,16 @@ class SRTE(SocialRecommender ):
             print 'user ' + u1 + ' finished.'
         print 'The user correlation has been figured out.'
 
-    def reComputeTrust(self):
-        print 're-computing user trust...'
-        for u1 in self.dao.testSet_u :
-            if u1 in self.sao.followees:
-                for u2 in self.sao.followees[u1]:
-                    if  u1 in self.sVecs and u2 in self.sVecs:
-                        sim = self.cosine_t(self.sVecs[u1], self.sVecs[u2])
-                        self.trust[u1][u2] = sim
-                print 'user ' + u1 + ' finished.'
-        print 'The user correlation has been figured out.'
+    # def reComputeTrust(self):
+    #     print 're-computing user trust...'
+    #     for u1 in self.dao.testSet_u :
+    #         if u1 in self.sao.followees:
+    #             for u2 in self.sao.followees[u1]:
+    #                 if  u1 in self.sVecs and u2 in self.sVecs:
+    #                     sim = self.cosine_t(self.sVecs[u1], self.sVecs[u2])
+    #                     self.trust[u1][u2] = sim
+    #             print 'user ' + u1 + ' finished.'
+    #     print 'The user correlation has been figured out.'
 
     def predictBySim(self, u, i):
         if u not in self.uVecs:
@@ -181,9 +181,9 @@ class SRTE(SocialRecommender ):
 
     def predict(self,u,i):
         r1 = self.predictBySim(u,i)
-        r2 = self.predictByTrust(u,i)
-        if r2!=0:
-            return (r1+r2)/2
-        else:
-            return r1
+        # r2 = self.predictByTrust(u,i)
+        # if r2!=0:
+        #     return (r1+r2)/2
+        # else:
+        return r1
 
