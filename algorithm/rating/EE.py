@@ -16,8 +16,8 @@ class EE(IterativeRecommender):
         super(EE, self).initModel()
         self.Bu = np.random.rand(self.dao.trainingSize()[0])/10  # biased value of user
         self.Bi = np.random.rand(self.dao.trainingSize()[1])/10  # biased value of item
-        self.X = np.random.rand(self.dao.trainingSize()[0], self.Dim)/10
-        self.Y = np.random.rand(self.dao.trainingSize()[1], self.Dim)/10
+        self.X = np.random.rand(self.dao.trainingSize()[0], self.Dim)/30
+        self.Y = np.random.rand(self.dao.trainingSize()[1], self.Dim)/30
 
     def buildModel(self):
         iteration = 0

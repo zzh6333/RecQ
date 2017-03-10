@@ -43,8 +43,13 @@ class Word_Eembedding_Method(object):
         for user in trainingData:
             tag = user
             self.corpus[tag] = []
-            for item, rating in trainingData[user].iteritems():
-                self.corpus[tag] += int(rating)*[item]
+            #trainingData = sorted(trainingData.iteritems(),key=lambda d:d[1][1])
+
+            itemDict = sorted(trainingData[user].iteritems(),key = lambda d:d[1][1])
+            items = []
+            for product in itemDict:
+                items+=int(product[1][0])*[product[0]]
+            self.corpus[tag] += items
 
 
     def trainingNet(self, epoch,window, nDimension):
@@ -58,27 +63,30 @@ class Word_Eembedding_Method(object):
         return self.model
 
 
-class W2V2(IterativeRecommender):
+class timeVec(IterativeRecommender):
     def __init__(self,conf,trainingSet=None,testSet=None,fold='[1]'):
-        super(W2V2, self).__init__(conf,trainingSet,testSet,fold)
+        super(timeVec, self).__init__(conf,trainingSet,testSet,fold)
 
     def initModel(self):
-        super(W2V2, self).initModel()
+        super(timeVec, self).initModel()
         self.userProfile = defaultdict(dict)
         self.itemProfile = defaultdict(dict)
-        self.Bu = np.random.rand(self.dao.trainingSize()[0]) / 30  # biased value of user
-        self.Bi = np.random.rand(self.dao.trainingSize()[1]) / 30  # biased value of item
-        self.H = np.random.rand(50, 50) / 30
+        self.Bu = np.random.rand(self.dao.trainingSize()[0]) / 10  # biased value of user
+        self.Bi = np.random.rand(self.dao.trainingSize()[1]) / 10  # biased value of item
+        self.H = np.random.rand(30, 30) / 10
         for entry in self.dao.trainingData:
-            userId, itemId, rating = entry
+            userId, itemId, rating,timestamp = entry
 
             # makes the rating within the range [0, 1].
             rating = denormalize(float(rating), self.dao.rScale[-1], self.dao.rScale[0])
-            self.userProfile[userId][itemId] = round(rating)
-            #self.itemProfile[itemId][userId] = round(rating)
+            self.userProfile[userId][itemId] = [round(rating),timestamp]
+            self.itemProfile[itemId][userId] = [round(rating),timestamp]
 
         up = Word_Eembedding_Method(self.userProfile)
-        model = up.trainingNet(10, 5, 50)
+
+        #ip = Word_Eembedding_Method(self.itemProfile)
+
+        model = up.trainingNet(5, 5, 30)
         self.uVecs = model.docvecs
         self.iVecs = model.wv
 
@@ -88,10 +96,10 @@ class W2V2(IterativeRecommender):
         while iteration < self.maxIter:
             self.loss = 0
             for entry in self.dao.trainingData:
-                u, i, r = entry
+                u, i, r,time = entry
                 error = r - self.predict(u, i)
-                x = np.array([self.uVecs[u]/30])
-                y = np.array([self.iVecs[i]/30])
+                x = np.array([self.uVecs[u]/10])
+                y = np.array([self.iVecs[i]/10])
                 u = self.dao.getUserId(u)
                 i = self.dao.getItemId(i)
                 self.loss += error ** 2
@@ -110,8 +118,8 @@ class W2V2(IterativeRecommender):
 
     def predict(self,u,i):
         if self.dao.containsUser(u) and self.dao.containsItem(i):
-            x = np.array([self.uVecs[u]/30])
-            y = np.array([self.iVecs[i]/30])
+            x = np.array([self.uVecs[u]/10])
+            y = np.array([self.iVecs[i]/10])
             u = self.dao.getUserId(u)
             i = self.dao.getItemId(i)
             return self.dao.globalMean + self.Bi[i] + self.Bu[u] + (x-y).dot(self.H).dot((x-y).T)[0][0]

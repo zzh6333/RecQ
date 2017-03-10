@@ -56,11 +56,18 @@ class FileIO(object):
                     rating = 1 #default value
                 else:
                     rating  = items[int(order[2])]
+                if len(order)>3:
+                    timestamp = items[int(order[3])]
+                else:
+                    timestamp = 0
             except ValueError:
                 print 'Error! Have you added the option -header to the rating.setup?'
                 exit(-1)
             if not bTest:
-                trainingData.append([userId, itemId, float(rating)])
+                if len(order)>3:
+                    trainingData.append([userId, itemId, float(rating),timestamp])
+                else:
+                    trainingData.append([userId, itemId, float(rating)])
             else:
                 testData.append([userId, itemId, float(rating)])
         if not bTest:

@@ -40,13 +40,17 @@ class RatingDAO(object):
         scale = set()
         # find the maximum rating and minimum value
         for i, entry in enumerate(self.trainingData):
-            userId, itemId, rating = entry
+            rating = entry[2]
             scale.add(float(rating))
         self.rScale = list(scale)
         self.rScale.sort()
 
         for i,entry in enumerate(self.trainingData):
-            userId,itemId,rating = entry
+            timestamp = 0
+            if len(entry)>3:
+                userId, itemId, rating,timestamp = entry
+            else:
+                userId,itemId,rating = entry
             # makes the rating within the range [0, 1].
             rating = normalize(float(rating), self.rScale[-1], self.rScale[0])
             self.trainingData[i][2] = rating
@@ -57,7 +61,10 @@ class RatingDAO(object):
             if not self.item.has_key(itemId):
                 self.item[itemId] = len(self.item)
                 # userList.append
-            triple.append([self.user[userId], self.item[itemId], rating])
+            if len(entry)>3:
+                triple.append([self.user[userId], self.item[itemId], rating,timestamp])
+            else:
+                triple.append([self.user[userId], self.item[itemId], rating])
         self.trainingMatrix = new_sparseMatrix.SparseMatrix(triple)
 
         for entry in self.testData:
